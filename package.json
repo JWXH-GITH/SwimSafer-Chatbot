@@ -1,0 +1,12 @@
+{
+  "name": "chatbot-app",
+  "version": "1.0.0",
+  "description": "This project is a modular, Dockerized chatbot application that uses LangGraph for workflow orchestration, Qdrant for vector search, OpenAI for LLM responses, Tavily for web search, and LlamaParse for document parsing.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
