@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.graph import build_graph
 from tiktoken import encoding_for_model
 
-load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 MAX_TOKENS = 16385
