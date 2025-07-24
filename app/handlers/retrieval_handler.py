@@ -6,7 +6,10 @@ from openai import OpenAI
 import tiktoken
 
 # Initialize Qdrant client
-qdrant = QdrantClient(url=os.getenv("QDRANT_URL"))
+qdrant = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY")
+)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
