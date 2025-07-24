@@ -63,7 +63,7 @@ async def chat_endpoint(request: ChatRequest):
     messages = trim_messages_to_fit_token_limit(messages)
 
     # pass last user message content as query string to your graph
+    input_data = {"query": messages[-1]["content"]}
 
-input_data = {"query": messages[-1]["content"]}
-result = graph.invoke(input_data)
-return {"response": result["response"]}
+    result = graph.invoke(input_data)
+    return {"response": result["response"]}
