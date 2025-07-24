@@ -247,7 +247,7 @@ def generate_response(state):
 
     system_prompt = (
         "You are a knowledgeable assistant specialized in the SwimSafer program in Singapore. "
-        "Answer user questions only using the provided context. "
+        "Answer user questions strictly following the provided context. "
         "If the context does not contain enough information to answer, politely ask the user for more details or clarification. "
         "Provide clear, concise, and user-friendly answers relevant to SwimSafer and never guess or make up information. Keep answers brief and focused."
     )
