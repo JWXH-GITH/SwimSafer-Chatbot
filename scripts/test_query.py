@@ -1,45 +1,29 @@
-import os
-import sys
-from dotenv import load_dotenv
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Filter
 
-# Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Connect to your local Qdrant (adjust host and port if needed)
+client = QdrantClient(host="localhost", port=6333)
 
-from app.utils.embedding import get_query_embedding
-from app.services.qdrant_client import qdrant  # or a retrieval function
-from app.services.openai_client import generate_response
-from app.services.tavily_client import search_web
-from app.utils.logging import logger
+# Your collection name
+collection_name = "chatbot_docs"
 
-# Load environment variables
-load_dotenv()
+# The query embedding — you need to get this by embedding your query text
+# For demonstration, let's say you already have an embedding function `embed_text`
+def embed_text(text):
+    # Replace this with your real embedding code (e.g. OpenAI or HuggingFace)
+    return [0.1] * 1536  # dummy embedding vector
 
-COLLECTION_NAME = "your_collection_name"
+query = "how to get results?"
+query_vector = embed_text(query)
 
-def test_query(user_query: str):
-    logger.info(f"User query: {user_query}")
+# Search for the top 3 most similar chunks
+results = client.search(
+    collection_name=collection_name,
+    query_vector=query_vector,
+    limit=3
+)
 
-    # Step 1: Embed query
-    query_embedding = get_query_embedding(user_query)
-
-    # Step 2: Retrieve from Qdrant
-    search_result = qdrant.search(
-        collection_name=COLLECTION_NAME,
-        query_vector=query_embedding,
-        limit=3
-    )
-    retrieved_texts = [hit.payload["text"] for hit in search_result]
-
-    # Step 3: Web search (optional)
-    web_results = search_web(user_query)
-    web_snippets = [result["content"] for result in web_results]
-
-    # Step 4: Generate response
-    context = "\n\n".join(retrieved_texts + web_snippets)
-    prompt = f"Answer the following question using the context below:\n\nContext:\n{context}\n\nQuestion: {user_query}"
-    response = generate_response(prompt)
-
-    logger.info(f"Response:\n{response}")
-
-if __name__ == "__main__":
-    test_query("What is LangGraph and how does it work?")
+print("Top 3 retrieved chunks:")
+for hit in results:
+    # Assuming your payload has a 'text' field storing chunk content
+    print(f"Score: {hit.score:.4f}, Text: {hit.payload.get('text')}")
