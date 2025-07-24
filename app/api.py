@@ -7,9 +7,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from tiktoken import encoding_for_model
 
-# Load environment variables from .env (optional for local dev)
-load_dotenv()
-
 # Initialize OpenAI client with your API key
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
