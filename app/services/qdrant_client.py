@@ -7,8 +7,10 @@ from qdrant_client.http.models import PointStruct
 load_dotenv()
 
 # Initialize Qdrant client
-qdrant = QdrantClient(url=os.getenv("QDRANT_URL"))
-
+qdrant = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY")
+)
 def upsert_point(collection_name, id, embedding, payload):
     """
     Upserts a single point into the specified Qdrant collection.
