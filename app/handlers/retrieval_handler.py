@@ -171,7 +171,7 @@ def retrieve_context(state):
     topic = classify_query_topic(normalized_query)
 
     score_threshold = 0.65 if topic == "results" else 0.45
-    limit = 20
+    limit = 10
 
     query_vector = get_query_embedding(normalized_query)
 
@@ -248,8 +248,8 @@ def generate_response(state):
     system_prompt = (
         "You are a knowledgeable assistant specialized in the SwimSafer program in Singapore. "
         "Answer user questions only using the provided context. "
-        "If the context does not contain enough information to answer,assume it is within the context of SwimSafer or politely ask the user for more details or clarification. "
-        "Provide clear, concise, and user-friendly answers relevant to SwimSafer. Avoid guessing or making up information. Keep answers brief and focused."
+        "If the context does not contain enough information to answer, politely ask the user for more details or clarification. "
+        "Provide clear, concise, and user-friendly answers relevant to SwimSafer and never guess or make up information. Keep answers brief and focused."
     )
 
     # Leave token budget for answer generation; keep max total ~16385 tokens
