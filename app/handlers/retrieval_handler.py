@@ -10,7 +10,6 @@ qdrant = QdrantClient(
     url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_KEY")
 )
-
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -170,8 +169,8 @@ def retrieve_context(state):
 
     topic = classify_query_topic(normalized_query)
 
-    score_threshold = 0.80 if topic == "results" else 0.60
-    limit = 10
+    score_threshold = 0.25 if topic == "results" else 0.20
+    limit = 40
 
     query_vector = get_query_embedding(normalized_query)
 
@@ -240,29 +239,21 @@ def truncate_to_token_limit(text, max_tokens, model="gpt-3.5-turbo"):
     truncated = tokens[:max_tokens]
     return encoding.decode(truncated)
 
+
 def generate_response(state):
     query = state["query"]
     raw_context = state.get("context", "")
 
     system_prompt = (
         "You are a knowledgeable assistant specialized in the SwimSafer program in Singapore. "
-        "Only answer based on the provided context. "
-        "If the context is insufficient, clearly say: 'I’m sorry, I don’t have enough information to answer that.' "
-        "Do not guess or include any information not present in the context. "
-        "Keep answers clear, concise, and strictly relevant to SwimSafer only."
+        "Answer user questions only using the provided context. "
+        "If the context does not contain enough information to answer,assume it is within the context of SwimSafer or politely ask the user for more details or clarification. "
+        "Provide clear, concise, and user-friendly answers relevant to SwimSafer. Avoid guessing or making up information. Keep answers brief and focused."
     )
 
-    # Leave token budget for generation
+    # Leave token budget for answer generation; keep max total ~16385 tokens
     token_budget = 15800
     context = truncate_to_token_limit(raw_context, token_budget)
-
-    # Abort early if context is empty or too short
-    if not context.strip() or len(context.split()) < 5:
-        return {
-            **state,
-            "response": "I'm sorry, I couldn't find enough relevant information to answer your question. "
-                        "Could you please rephrase or provide more details?"
-        }
 
     user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
 
@@ -272,7 +263,7 @@ def generate_response(state):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        temperature=0.0,  # strict factual behavior
+        temperature=0.5,
         max_tokens=300,
     )
 
@@ -282,4 +273,3 @@ def generate_response(state):
         **state,
         "response": answer
     }
-
