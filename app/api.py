@@ -1,3 +1,5 @@
+import openai
+import os
 from typing import List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI
@@ -5,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.graph import build_graph
 from tiktoken import encoding_for_model
 
-# Helper functions (paste these here or import from utils)
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 MAX_TOKENS = 16385
 MODEL_NAME = "gpt-4o"
 
@@ -56,14 +60,12 @@ app.add_middleware(
 graph = build_graph()
 
 @app.post("/chat")
-async def chat_endpoint(request: ChatRequest):
-    messages = request.messages  # list of dicts like {"role": "...", "content": "..."}
-
-    # trim if needed
-    messages = trim_messages_to_fit_token_limit(messages)
-
-    # pass last user message content as query string to your graph
-    input_data = {"query": messages[-1]["content"]}
-
-    result = graph.invoke(input_data)
-    return {"response": result["response"]}
+async def chat(request: ChatRequest):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # or "gpt-3.5-turbo"
+            messages=request.messages,
+        )
+        return {"response": response.choices[0].message["content"]}
+    except Exception as e:
+        return {"response": f"Error: {str(e)}"}
