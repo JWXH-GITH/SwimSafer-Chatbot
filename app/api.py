@@ -1,3 +1,4 @@
+import openai
 from typing import List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI
@@ -63,7 +64,12 @@ async def chat_endpoint(request: ChatRequest):
     messages = trim_messages_to_fit_token_limit(messages)
 
     # pass last user message content as query string to your graph
-    input_data = {"query": messages[-1]["content"]}
 
-    result = graph.invoke(input_data)
-    return {"response": result["response"]}
+openai.api_key = os.getenv("OPENAI_API_KEY")  # put in .env
+
+response = openai.ChatCompletion.create(
+    model=MODEL_NAME,
+    messages=messages,
+)
+
+return {"response": response.choices[0].message["content"]}
