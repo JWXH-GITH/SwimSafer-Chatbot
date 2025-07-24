@@ -208,7 +208,12 @@ def retrieve_context(state):
     main_hits = [hit for hit in search_results if hit.payload.get("category") == "main"]
 
     all_hits = topic_hits + supplemental_hits + main_hits
-    unique_hits = list(OrderedDict.fromkeys(all_hits))
+    unique_hits_dict = {}
+    for hit in all_hits:
+        if hit.id not in unique_hits_dict:
+            unique_hits_dict[hit.id] = hit
+
+    unique_hits = list(unique_hits_dict.values())
     hits_to_use = sorted(unique_hits, key=lambda h: h.score, reverse=True)[:limit]
 
     context = "\n---\n".join([hit.payload.get("text", "") for hit in hits_to_use])
