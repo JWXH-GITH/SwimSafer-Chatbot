@@ -1,20 +1,14 @@
-import os
 from typing import List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-from openai import OpenAI
+from app.graph import build_graph
 from tiktoken import encoding_for_model
 
-# Initialize OpenAI client with your API key
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Constants
+# Helper functions (paste these here or import from utils)
 MAX_TOKENS = 16385
 MODEL_NAME = "gpt-4o"
 
-# --- Token helper functions ---
 def num_tokens_from_messages(messages, model=MODEL_NAME):
     enc = encoding_for_model(model)
     tokens_per_message = 4
@@ -42,34 +36,34 @@ def trim_messages_to_fit_token_limit(messages, max_tokens=MAX_TOKENS):
             break
     return trimmed if trimmed else [system_message]
 
-# --- FastAPI app setup ---
+# Request schema
 class ChatRequest(BaseModel):
     messages: List[Dict]  # Expect list of messages like OpenAI chat format
 
+# Initialize FastAPI app
 app = FastAPI()
 
-# Enable CORS for frontend access
+# Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust to your frontend domain in production
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Build LangGraph once
+graph = build_graph()
+
 @app.post("/chat")
-async def chat(request: ChatRequest):
-    try:
-        # Trim messages to fit token limits
-        messages = trim_messages_to_fit_token_limit(request.messages)
+async def chat_endpoint(request: ChatRequest):
+    messages = request.messages  # list of dicts like {"role": "...", "content": "..."}
 
-        # Make OpenAI chat call
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages
-        )
+    # trim if needed
+    messages = trim_messages_to_fit_token_limit(messages)
 
-        return {"response": response.choices[0].message.content}
+    # pass last user message content as query string to your graph
+    input_data = {"query": messages[-1]["content"]}
 
-    except Exception as e:
-        return {"response": f"Error: {str(e)}"}
+    result = graph.invoke(input_data)
+    return {"response": result["response"]}
