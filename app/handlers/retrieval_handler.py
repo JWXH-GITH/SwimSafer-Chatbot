@@ -1,5 +1,6 @@
 import os
 import re
+from collections import OrderedDict
 from qdrant_client import QdrantClient
 from app.utils.embedding import get_query_embedding
 from openai import OpenAI
@@ -10,30 +11,36 @@ qdrant = QdrantClient(
     url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_KEY")
 )
+
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def normalize_query(query: str) -> str:
     synonym_map = {
-        # Results related
+        # Results and Certificates
         "get results": "check results",
         "retrieve results": "check results",
         "view results": "check results",
         "how to get results": "check results",
         "where to get results": "check results",
         "assessment results": "check results",
+        "where to view results": "check results",
         "result appeal": "appeal results",
         "appeal results": "appeal results",
+
         "check certificate": "get certificate",
         "get certificate": "get certificate",
         "retrieve certificate": "get certificate",
         "download certificate": "get certificate",
         "certificate request": "get certificate",
-        "how to get certificate": "get certificate",
+
+        # Expiry
         "check expiry": "check expiry",
         "certificate expiry": "check expiry",
+        "expiry date": "check expiry",
+        "instructor expiry": "check expiry",
 
-        # Registration related
+        # Registration
         "register": "register",
         "sign up": "register",
         "how to register": "register",
@@ -44,12 +51,14 @@ def normalize_query(query: str) -> str:
         "register participant": "register",
         "participant registration": "register",
 
-        # Assessment related
+        # Assessment Basics
         "assessment": "assessment",
         "test": "assessment",
         "exam": "assessment",
         "swimsafer assessment": "assessment",
         "swimsafer test": "assessment",
+
+        # Assessment Details
         "assessment schedule": "assessment schedule",
         "when is the assessment": "assessment schedule",
         "next assessment": "assessment schedule",
@@ -65,14 +74,14 @@ def normalize_query(query: str) -> str:
         "assessment centers": "assessment locations",
         "group size limits": "group size limits",
 
-        # Remediation related
+        # Remediation
         "remediation": "remediation",
         "retest": "remediation",
         "remediation registration": "remediation",
         "remediation retest": "remediation",
         "swimsafer remediation": "remediation",
 
-        # Program Info
+        # SwimSafer Program Info
         "swimsafer 2.0": "swimsafer 2.0",
         "stages in swimsafer": "stages",
         "swimsafer stages": "stages",
@@ -82,7 +91,7 @@ def normalize_query(query: str) -> str:
         "swimsafer program info": "swimsafer 2.0",
         "swimsafer program details": "swimsafer 2.0",
 
-        # Instructor / Coach / Usage Permit
+        # Instructor / Usage Permit
         "swimsafer instructor": "instructor",
         "become instructor": "instructor",
         "how to become instructor": "instructor",
@@ -102,7 +111,7 @@ def normalize_query(query: str) -> str:
         "medical certificate submission": "medical exemption",
         "medical condition refund": "medical exemption",
 
-        # Rain / Rescheduling / Weather policy
+        # Weather / Rain
         "what if it rains": "rain policy",
         "rain policy": "rain policy",
         "rain-off": "rain policy",
@@ -126,13 +135,22 @@ def normalize_query(query: str) -> str:
         "attempt theory quiz": "theory quiz",
         "complete theory quiz": "theory quiz",
 
-        # General questions
+        # Eligibility
         "who can join swimsafer": "eligibility",
         "eligibility": "eligibility",
+
+        # Prerequisites
         "prerequisites for stages": "prerequisites",
         "stage prerequisites": "prerequisites",
-        "how to check expiry": "check expiry",
-        "check expiry date": "check expiry",
+
+        # Assessor Submission
+        "submit results": "submit results",
+        "upload results": "submit results",
+        "submit assessment results": "submit results",
+        "assessor submit results": "submit results",
+        "submit as assessor": "submit results",
+        "report assessment": "submit results",
+        "result submission": "submit results",
     }
 
     query = query.lower()
@@ -143,35 +161,32 @@ def normalize_query(query: str) -> str:
         if re.search(pattern, query):
             query = re.sub(pattern, synonym_map[phrase], query)
 
-    # Optional: log normalized query for debugging
     print(f"Normalized query: {query}")
-
     return query
-
 
 def classify_query_topic(query):
     topic_keywords = {
-        "results": ["result", "certificate", "check", "pass", "fail"],
+        "results": ["result", "certificate", "check", "pass", "fail", "submit results"],
         "registration": ["register", "signup", "sign up", "account", "login"],
         "assessment": ["assessment", "book", "slot", "reschedule", "schedule"],
         "appeal": ["appeal", "not competent", "reassess", "re-evaluate"],
-        # You can expand topics if needed
+        "instructor": ["instructor", "usage permit", "expire", "course"],
+        "remediation": ["remediation", "retest"],
+        "rain": ["rain", "weather", "reschedule"],
+        "quiz": ["theory quiz", "quiz"]
     }
     for topic, keywords in topic_keywords.items():
         if any(k in query for k in keywords):
             return topic
     return "general"
 
-
 def retrieve_context(state):
     original_query = state["query"]
     normalized_query = normalize_query(original_query)
-
     topic = classify_query_topic(normalized_query)
 
     score_threshold = 0.25 if topic == "results" else 0.20
     limit = 40
-
     query_vector = get_query_embedding(normalized_query)
 
     search_results = qdrant.search(
@@ -188,15 +203,13 @@ def retrieve_context(state):
     for hit in search_results:
         print(f"Score: {hit.score:.3f} | Category: {hit.payload.get('category')} | Topic: {hit.payload.get('topic')} | Text snippet: {hit.payload.get('text','')[:100]}...")
 
-    # Combine topic hits, supplemental hits, and main hits
     topic_hits = [hit for hit in search_results if hit.payload.get("topic") == topic]
     supplemental_hits = [hit for hit in search_results if hit.payload.get("category") != "main"]
     main_hits = [hit for hit in search_results if hit.payload.get("category") == "main"]
 
-    hits_to_use = topic_hits + supplemental_hits + main_hits
-
-    # Sort hits by descending score to get top results first
-    hits_to_use = sorted(hits_to_use, key=lambda h: h.score, reverse=True)[:limit]
+    all_hits = topic_hits + supplemental_hits + main_hits
+    unique_hits = list(OrderedDict.fromkeys(all_hits))
+    hits_to_use = sorted(unique_hits, key=lambda h: h.score, reverse=True)[:limit]
 
     context = "\n---\n".join([hit.payload.get("text", "") for hit in hits_to_use])
 
@@ -209,36 +222,15 @@ def retrieve_context(state):
         "context": context
     }
 
-
-    topic_hits = [hit for hit in search_results if hit.payload.get("topic") == topic]
-    main_hits = [hit for hit in search_results if hit.payload.get("category") == "main"]
-    hits_to_use = topic_hits or main_hits or search_results
-
-    context = "\n---\n".join([hit.payload.get("text", "") for hit in hits_to_use])
-
-    print(f"\n🔍 Retrieved chunks for query: '{original_query}' (normalized: '{normalized_query}') [topic: {topic}]")
-    for hit in hits_to_use:
-        print("→", hit.payload.get("text", "")[:300].replace("\n", " ") + "...\n")
-
-    return {
-        **state,
-        "context": context
-    }
-
-
 def count_tokens(text, model="gpt-3.5-turbo"):
-    import tiktoken
     encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
 
-
 def truncate_to_token_limit(text, max_tokens, model="gpt-3.5-turbo"):
-    import tiktoken
     encoding = tiktoken.encoding_for_model(model)
     tokens = encoding.encode(text)
     truncated = tokens[:max_tokens]
     return encoding.decode(truncated)
-
 
 def generate_response(state):
     query = state["query"]
@@ -247,14 +239,12 @@ def generate_response(state):
     system_prompt = (
         "You are a knowledgeable assistant specialized in the SwimSafer program in Singapore. "
         "Answer user questions only using the provided context. "
-        "If the context does not contain enough information to answer,assume it is within the context of SwimSafer or politely ask the user for more details or clarification. "
+        "If the context does not contain enough information to answer, assume it is within the context of SwimSafer or politely ask the user for more details or clarification. "
         "Provide clear, concise, and user-friendly answers relevant to SwimSafer. Avoid guessing or making up information. Keep answers brief and focused."
     )
 
-    # Leave token budget for answer generation; keep max total ~16385 tokens
     token_budget = 15800
     context = truncate_to_token_limit(raw_context, token_budget)
-
     user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
 
     response = client.chat.completions.create(
