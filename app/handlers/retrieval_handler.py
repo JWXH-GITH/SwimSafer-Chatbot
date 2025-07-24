@@ -170,8 +170,8 @@ def retrieve_context(state):
 
     topic = classify_query_topic(normalized_query)
 
-    score_threshold = 0.25 if topic == "results" else 0.20
-    limit = 40
+    score_threshold = 0.65 if topic == "results" else 0.45
+    limit = 20
 
     query_vector = get_query_embedding(normalized_query)
 
