@@ -240,21 +240,29 @@ def truncate_to_token_limit(text, max_tokens, model="gpt-3.5-turbo"):
     truncated = tokens[:max_tokens]
     return encoding.decode(truncated)
 
-
 def generate_response(state):
     query = state["query"]
     raw_context = state.get("context", "")
 
     system_prompt = (
         "You are a knowledgeable assistant specialized in the SwimSafer program in Singapore. "
-        "Answer user questions strictly following the provided context. "
-        "If the context does not contain enough information to answer, politely ask the user for more details or clarification. "
-        "Provide clear, concise, and user-friendly answers relevant to SwimSafer and never guess or make up information. Keep answers brief and focused."
+        "Only answer based on the provided context. "
+        "If the context is insufficient, clearly say: 'I’m sorry, I don’t have enough information to answer that.' "
+        "Do not guess or include any information not present in the context. "
+        "Keep answers clear, concise, and strictly relevant to SwimSafer only."
     )
 
-    # Leave token budget for answer generation; keep max total ~16385 tokens
+    # Leave token budget for generation
     token_budget = 15800
     context = truncate_to_token_limit(raw_context, token_budget)
+
+    # Abort early if context is empty or too short
+    if not context.strip() or len(context.split()) < 5:
+        return {
+            **state,
+            "response": "I'm sorry, I couldn't find enough relevant information to answer your question. "
+                        "Could you please rephrase or provide more details?"
+        }
 
     user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
 
@@ -264,7 +272,7 @@ def generate_response(state):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        temperature=0.5,
+        temperature=0.0,  # strict factual behavior
         max_tokens=300,
     )
 
@@ -274,3 +282,4 @@ def generate_response(state):
         **state,
         "response": answer
     }
+
