@@ -1,17 +1,23 @@
-import openai
 import os
 from typing import List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.graph import build_graph
+from dotenv import load_dotenv
+from openai import OpenAI
 from tiktoken import encoding_for_model
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Load environment variables from .env (optional for local dev)
+load_dotenv()
 
+# Initialize OpenAI client with your API key
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Constants
 MAX_TOKENS = 16385
 MODEL_NAME = "gpt-4o"
 
+# --- Token helper functions ---
 def num_tokens_from_messages(messages, model=MODEL_NAME):
     enc = encoding_for_model(model)
     tokens_per_message = 4
@@ -39,32 +45,34 @@ def trim_messages_to_fit_token_limit(messages, max_tokens=MAX_TOKENS):
             break
     return trimmed if trimmed else [system_message]
 
-# Request schema
+# --- FastAPI app setup ---
 class ChatRequest(BaseModel):
     messages: List[Dict]  # Expect list of messages like OpenAI chat format
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Enable CORS for frontend integration
+# Enable CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],  # Adjust to your frontend domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Build LangGraph once
-graph = build_graph()
-
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # or "gpt-3.5-turbo"
-            messages=request.messages,
+        # Trim messages to fit token limits
+        messages = trim_messages_to_fit_token_limit(request.messages)
+
+        # Make OpenAI chat call
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages
         )
-        return {"response": response.choices[0].message["content"]}
+
+        return {"response": response.choices[0].message.content}
+
     except Exception as e:
         return {"response": f"Error: {str(e)}"}
