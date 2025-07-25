@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 app_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app"))
 sys.path.insert(0, app_path)
 
-from utils.embedding import get_query_embedding
+from app.utils.embedding import get_query_embedding
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, Distance, VectorParams
 
