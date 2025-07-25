@@ -1,44 +1,23 @@
 import os
-from dotenv import load_dotenv
+import requests
 
-# Hypothetical Groq Python client import — replace with your actual Groq SDK import
-from groq_client import GroqClient
+class GroqClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.groq.ai/v1"  # replace with Groq's actual API base URL
 
-load_dotenv()
-
-# Initialize Groq client with your API key
-client = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
-
-def generate_response(state):
-    query = state["query"]
-    raw_context = state.get("context", "")
-
-    system_prompt = (
-        "You are a helpful assistant knowledgeable about the SwimSafer program in Singapore. "
-        "Use *only* the provided context to answer the question. "
-        "Do not fabricate or assume information beyond the context. "
-        "If the context does not contain the answer, politely inform the user you don't have enough information. "
-        "Keep the answer concise and relevant."
-    )
-
-    user_prompt = f"Context:\n{raw_context}\n\nQuestion:\n{query}"
-
-    # Replace the below call with your actual Groq chat completion method
-    response = client.chat_complete(
-        model="groq-chat-model",  # change to your Groq chat model name
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.3,
-        max_tokens=300,
-    )
-
-    answer = response.choices[0].message.content.strip()
-
-    print(f"\n📝 Query: {query}\n💬 Answer: {answer}\n")
-
-    return {
-        **state,
-        "response": answer
-    }
+    def chat_complete(self, model: str, messages: list, temperature: float = 0.7, max_tokens: int = 300):
+        url = f"{self.base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()  # raise error for bad responses
+        return response.json()
