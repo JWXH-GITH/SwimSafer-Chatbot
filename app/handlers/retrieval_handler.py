@@ -1,272 +1,194 @@
 import os
+import sys
+import uuid
 import re
-from collections import OrderedDict
+from dotenv import load_dotenv
+
+# Add the absolute path to the `app` directory
+app_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app"))
+sys.path.insert(0, app_path)
+
+from utils.embedding import get_query_embedding
 from qdrant_client import QdrantClient
-from app.utils.embedding import get_query_embedding
-from openai import OpenAI
-import tiktoken
+from qdrant_client.http.models import PointStruct, Distance, VectorParams
+
+# Load environment variables
+load_dotenv()
+
+# Constants
+PARSED_DIR = "data/parsed"
+COLLECTION_NAME = "chatbot_docs"
+MAIN_FILENAMES = ["Main Faq.txt", "output 5.md"]
+VECTOR_DIM = 768  # Updated for e5-base-v2
+
+# Set Qdrant URL with fallback
+qdrant_url = os.getenv("QDRANT_URL")
+if not qdrant_url or "qdrant" in qdrant_url or qdrant_url.strip() == "":
+    print("Using fallback Qdrant URL")
+    qdrant_url = "https://f1220f8d-947b-45d6-8b14-9ce454415ca3.eu-west-1-0.aws.cloud.qdrant.io"
 
 # Initialize Qdrant client
 qdrant = QdrantClient(
-    url=os.getenv("QDRANT_URL"),
+    url=qdrant_url,
     api_key=os.getenv("QDRANT_API_KEY")
 )
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Create collection if it does NOT exist
+if not qdrant.collection_exists(COLLECTION_NAME):
+    qdrant.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
+    )
+else:
+    print(f"Collection '{COLLECTION_NAME}' already exists, skipping creation.")
 
-def normalize_query(query: str) -> str:
-    synonym_map = {
-        # Results and Certificates
-        "get results": "check results",
-        "retrieve results": "check results",
-        "view results": "check results",
-        "how to get results": "check results",
-        "where to get results": "check results",
-        "assessment results": "check results",
-        "where to view results": "check results",
-        "result appeal": "appeal results",
-        "appeal results": "appeal results",
+# Chunking functions
+def chunk_by_question(text):
+    parts = re.split(r'\n(?=Q:)', text)
+    return [part.strip() for part in parts if part.strip()]
 
-        "check certificate": "get certificate",
-        "get certificate": "get certificate",
-        "retrieve certificate": "get certificate",
-        "download certificate": "get certificate",
-        "certificate request": "get certificate",
+def generic_chunk(text, max_len=700):
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    chunk = ""
+    chunks = []
+    for sentence in sentences:
+        if len(chunk) + len(sentence) < max_len:
+            chunk += " " + sentence
+        else:
+            chunks.append(chunk.strip())
+            chunk = sentence
+    if chunk:
+        chunks.append(chunk.strip())
+    return chunks
 
-        # Expiry
-        "check expiry": "check expiry",
-        "certificate expiry": "check expiry",
-        "expiry date": "check expiry",
-        "instructor expiry": "check expiry",
-
-        # Registration
-        "register": "register",
-        "sign up": "register",
-        "how to register": "register",
-        "assessment registration": "register",
-        "submit registration": "register",
-        "enroll": "register",
-        "enrollment": "register",
-        "register participant": "register",
-        "participant registration": "register",
-
-        # Assessment Basics
-        "assessment": "assessment",
-        "test": "assessment",
-        "exam": "assessment",
-        "swimsafer assessment": "assessment",
-        "swimsafer test": "assessment",
-
-        # Assessment Details
-        "assessment schedule": "assessment schedule",
-        "when is the assessment": "assessment schedule",
-        "next assessment": "assessment schedule",
-        "assessment fee": "assessment cost",
-        "assessment cost": "assessment cost",
-        "assessment duration": "assessment duration",
-        "assessment time": "assessment duration",
-        "assessment length": "assessment duration",
-        "assessment venue": "assessment locations",
-        "assessment location": "assessment locations",
-        "where is the assessment": "assessment locations",
-        "assessment centres": "assessment locations",
-        "assessment centers": "assessment locations",
-        "group size limits": "group size limits",
-
-        # Remediation
-        "remediation": "remediation",
-        "retest": "remediation",
-        "remediation registration": "remediation",
-        "remediation retest": "remediation",
-        "swimsafer remediation": "remediation",
-
-        # SwimSafer Program Info
-        "swimsafer 2.0": "swimsafer 2.0",
-        "stages in swimsafer": "stages",
-        "swimsafer stages": "stages",
-        "how many stages": "stages",
-        "stage info": "stages",
-        "swimsafer program": "swimsafer 2.0",
-        "swimsafer program info": "swimsafer 2.0",
-        "swimsafer program details": "swimsafer 2.0",
-
-        # Instructor / Usage Permit
-        "swimsafer instructor": "instructor",
-        "instructor manual": "instructor",
-        "become instructor": "instructor",
-        "how to become instructor": "instructor",
-        "instructor course": "instructor",
-        "instructor certification": "instructor",
-        "usage permit": "instructor",
-        "usage permit renewal": "instructor",
-        "apply usage permit": "instructor",
-        "renew usage permit": "instructor",
-        "instructor permit": "instructor",
-
-        # Refund and Medical
-        "refund": "refund",
-        "refund policy": "refund",
-        "medical exemption": "medical exemption",
-        "medical certificate": "medical exemption",
-        "refund due to medical reason": "medical exemption",
-        "medical certificate submission": "medical exemption",
-        "medical condition refund": "medical exemption",
-
-        # Weather / Rain
-        "what if it rains": "rain policy",
-        "rain policy": "rain policy",
-        "rain-off": "rain policy",
-        "rebook due to rain": "rain policy",
-        "reschedule due to rain": "rain policy",
-        "rain rescheduling": "rain policy",
-        "assessment cancelled rain": "rain policy",
-
-        # Appeal
-        "appeal": "appeal",
-        "file appeal": "appeal",
-        "appeal results": "appeal",
-        "not competent": "appeal",
-        "reassess": "appeal",
-        "re-evaluate": "appeal",
-
-        # Theory Quiz
-        "theory quiz": "theory quiz",
-        "where to do theory quiz": "theory quiz",
-        "attempt theory quiz": "theory quiz",
-        "complete theory quiz": "theory quiz",
-
-        # Eligibility
-        "who can join swimsafer": "eligibility",
-        "eligibility": "eligibility",
-
-        # Prerequisites
-        "prerequisites for stages": "prerequisites",
-        "stage prerequisites": "prerequisites",
-
-        # Assessor Submission
-        "submit results": "submit results",
-        "upload results": "submit results",
-        "submit assessment results": "submit results",
-        "assessor submit results": "submit results",
-        "submit as assessor": "submit results",
-        "report assessment": "submit results",
-        "result submission": "submit results",
+# Topic classifier
+def classify_topic(text):
+    keywords = {
+        "registration": [
+            "register", "sign up", "account", "login", "create", "email", "dashboard", "profile", "setup", "password"
+        ],
+        "assessment": [
+            "assessment", "slot", "book", "reschedule", "schedule", "test criteria", "practical", "quiz", "stage",
+            "level", "assessment centre", "safety briefing", "re-attempt", "results", "certificate", "assessor",
+            "submit results"
+        ],
+        "appeal": [
+            "appeal", "not competent", "reassess", "re-evaluate", "disagree", "conflict of interest", "panel",
+            "submit reason", "refund", "non competent", "failed"
+        ],
+        "results": [
+            "results", "certificates", "pass", "fail", "check results", "status", "green check", "download",
+            "quiz score", "completion", "view results"
+        ],
+        "payment": [
+            "payment", "invoice", "cart", "fee", "cost", "transaction", "checkout", "total amount", "proceed to payment"
+        ],
+        "coach": [
+            "coach", "validate", "linked participants", "club", "freelance", "unattached", "role", "dashboard",
+            "assign", "participant tagging", "instructor"
+        ],
+        "participant": [
+            "participant", "tag", "link", "select coach", "club affiliation", "profile", "NRIC", "personal information"
+        ],
+        "rescheduling": [
+            "reschedule", "change slot", "inclement weather", "rain-off", "deadline", "medical certificate",
+            "absence", "cancel", "no-show"
+        ],
+        "quiz": [
+            "online theory quiz", "quiz", "score", "attempt", "extension", "pass rate", "deadline", "expiry",
+            "complete quiz"
+        ],
+        "certificate": [
+            "certificate", "retrieve", "download", "completion", "stage", "profile", "CAMs platform"
+        ],
+        "medical": [
+            "medical", "doctor", "memo", "condition", "certificate", "permanent", "temporary", "review", "submit"
+        ],
+        "technical": [
+            "platform", "CAMS", "system", "login issues", "confirmation email", "technical difficulties",
+            "support", "contact"
+        ],
+        "permit": [
+            "usage permit", "swimming pool", "approval", "expired", "renew", "instructor permit", "permit validity"
+        ],
+        "expiry": [
+            "expiry", "validity", "expire", "extension", "instructor expiry", "quiz expiry", "registration expiry"
+        ],
+        "stages": [
+            "stage", "criteria", "level", "stages", "swimsafer stages", "stage criteria", "stage info"
+        ],
+        "instructor": [
+            "instructor", "manual", "course", "certification", "permit", "usage permit", "instructor permit"
+        ],
+        "general": [
+            "swim safer", "safety", "programme", "user manual", "overview", "introduction", "terms and conditions"
+        ]
     }
-
-    query = query.lower()
-    sorted_keys = sorted(synonym_map.keys(), key=len, reverse=True)
-
-    for phrase in sorted_keys:
-        pattern = r'\b' + re.escape(phrase) + r'\b'
-        if re.search(pattern, query):
-            query = re.sub(pattern, synonym_map[phrase], query)
-
-    print(f"Normalized query: {query}")
-    return query
-
-def classify_query_topic(query):
-    topic_keywords = {
-        "results": ["result", "certificate", "check", "pass", "fail", "submit results"],
-        "registration": ["register", "signup", "sign up", "account", "login"],
-        "assessment": ["assessment", "book", "slot", "reschedule", "schedule"],
-        "appeal": ["appeal", "not competent", "reassess", "re-evaluate"],
-        "instructor": ["instructor", "manual", "course", "permit", "certification", "usage permit", "instructor permit"],
-        "remediation": ["remediation", "retest"],
-        "rain": ["rain", "weather", "reschedule"],
-        "quiz": ["theory quiz", "quiz"],
-        "stages": ["stage", "stages", "criteria", "levels", "swimsafer stages", "stage info"],
-    }
-    for topic, keywords in topic_keywords.items():
-        if any(k in query for k in keywords):
+    text_lower = text.lower()
+    for topic, words in keywords.items():
+        if any(word in text_lower for word in words):
             return topic
     return "general"
 
-def retrieve_context(state):
-    original_query = state["query"]
-    normalized_query = normalize_query(original_query)
-    topic = classify_query_topic(normalized_query)
+# Ingest files
+def ingest_documents():
+    for filename in os.listdir(PARSED_DIR):
+        if not filename.endswith(".md") and not filename.endswith(".txt"):
+            continue
 
-    score_threshold = 0.25 if topic == "results" else 0.20
-    limit = 40
-    query_vector = get_query_embedding(normalized_query)
+        file_path = os.path.join(PARSED_DIR, filename)
+        print(f"\n📄 Processing: {filename}")
 
-    search_results = qdrant.search(
-        collection_name="chatbot_docs",
-        query_vector=query_vector,
-        limit=limit,
-        score_threshold=score_threshold
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                parsed_text = f.read()
+
+            category = "main" if filename in MAIN_FILENAMES else "supplement"
+            chunks = chunk_by_question(parsed_text) if category == "main" else generic_chunk(parsed_text)
+
+            ingested_count = 0
+
+            for chunk in chunks:
+                chunk = chunk.strip()
+                if len(chunk) < 20 or len(chunk) > 2000:
+                    continue  # skip overly short or long chunks
+
+                embedding = get_query_embedding(chunk)
+                if not embedding or len(embedding) != VECTOR_DIM:
+                    continue  # skip invalid embeddings
+
+                topic = classify_topic(chunk)
+                point_id = str(uuid.uuid4())
+
+                point = PointStruct(
+                    id=point_id,
+                    vector=embedding,
+                    payload={
+                        "text": chunk,
+                        "source": filename,
+                        "category": category,
+                        "topic": topic
+                    }
+                )
+
+                qdrant.upsert(collection_name=COLLECTION_NAME, points=[point])
+                ingested_count += 1
+
+            print(f"✅ Ingested {ingested_count} chunks from '{filename}' as category: {category}")
+
+        except Exception as e:
+            print(f"❌ Failed to process '{filename}': {e}")
+
+# Simple retrieval function
+def retrieve_similar(query_text, top_k=5):
+    embedding = get_query_embedding(query_text)
+    results = qdrant.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=embedding,
+        limit=top_k,
+        with_payload=True
     )
+    return results
 
-    if not search_results:
-        return {**state, "context": ""}
-
-    print("\n🔍 All retrieved chunks:")
-    for hit in search_results:
-        print(f"Score: {hit.score:.3f} | Category: {hit.payload.get('category')} | Topic: {hit.payload.get('topic')} | Text snippet: {hit.payload.get('text','')[:100]}...")
-
-    topic_hits = [hit for hit in search_results if hit.payload.get("topic") == topic]
-    supplemental_hits = [hit for hit in search_results if hit.payload.get("category") != "main"]
-    main_hits = [hit for hit in search_results if hit.payload.get("category") == "main"]
-
-    all_hits = topic_hits + supplemental_hits + main_hits
-    unique_hits_dict = {}
-    for hit in all_hits:
-        if hit.id not in unique_hits_dict:
-            unique_hits_dict[hit.id] = hit
-
-    unique_hits = list(unique_hits_dict.values())
-    hits_to_use = sorted(unique_hits, key=lambda h: h.score, reverse=True)[:limit]
-
-    context = "\n---\n".join([hit.payload.get("text", "") for hit in hits_to_use])
-
-    print(f"\n🔍 Used chunks for query: '{original_query}' (normalized: '{normalized_query}') [topic: {topic}]")
-    for hit in hits_to_use:
-        print("→", hit.payload.get("text", "")[:300].replace("\n", " ") + "...\n")
-
-    return {
-        **state,
-        "context": context
-    }
-
-def count_tokens(text, model="gpt-3.5-turbo"):
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
-
-def truncate_to_token_limit(text, max_tokens, model="gpt-3.5-turbo"):
-    encoding = tiktoken.encoding_for_model(model)
-    tokens = encoding.encode(text)
-    truncated = tokens[:max_tokens]
-    return encoding.decode(truncated)
-
-def generate_response(state):
-    query = state["query"]
-    raw_context = state.get("context", "")
-
-    system_prompt = (
-        "You are a knowledgeable assistant specialized in the SwimSafer program in Singapore. "
-        "Answer user questions only using the provided context. "
-        "If the context does not contain enough information to answer, assume it is within the context of SwimSafer or politely ask the user for more details or clarification. "
-        "Provide clear, concise, and user-friendly answers relevant to SwimSafer. Avoid guessing or making up information. Keep answers brief and focused."
-    )
-
-    token_budget = 15800
-    context = truncate_to_token_limit(raw_context, token_budget)
-    user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
-
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.5,
-        max_tokens=300,
-    )
-
-    answer = response.choices[0].message.content.strip()
-
-    return {
-        **state,
-        "response": answer
-    }
+if __name__ == "__main__":
+    ingest_documents()
