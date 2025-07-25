@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 # Hypothetical Groq Python client import — replace with your actual Groq SDK import
-from groq_client import GroqClient
+from app.services.groq_client import GroqClient
 
 load_dotenv()
 
