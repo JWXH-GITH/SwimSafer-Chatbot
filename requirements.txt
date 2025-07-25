@@ -8,3 +8,4 @@ uvicorn
 python-dotenv
 httpx
 loguru
+sentence-transformers
