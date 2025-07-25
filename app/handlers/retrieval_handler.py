@@ -93,14 +93,16 @@ def normalize_query(query: str) -> str:
 
         # Instructor / Usage Permit
         "swimsafer instructor": "instructor",
+        "instructor manual": "instructor",
         "become instructor": "instructor",
         "how to become instructor": "instructor",
-        "instructor course": "instructor course",
-        "instructor certification": "instructor certification",
-        "usage permit": "usage permit",
-        "usage permit renewal": "usage permit renewal",
-        "apply usage permit": "usage permit",
-        "renew usage permit": "usage permit renewal",
+        "instructor course": "instructor",
+        "instructor certification": "instructor",
+        "usage permit": "instructor",
+        "usage permit renewal": "instructor",
+        "apply usage permit": "instructor",
+        "renew usage permit": "instructor",
+        "instructor permit": "instructor",
 
         # Refund and Medical
         "refund": "refund",
@@ -127,7 +129,6 @@ def normalize_query(query: str) -> str:
         "not competent": "appeal",
         "reassess": "appeal",
         "re-evaluate": "appeal",
-        "assessment appeal": "appeal",
 
         # Theory Quiz
         "theory quiz": "theory quiz",
@@ -170,10 +171,11 @@ def classify_query_topic(query):
         "registration": ["register", "signup", "sign up", "account", "login"],
         "assessment": ["assessment", "book", "slot", "reschedule", "schedule"],
         "appeal": ["appeal", "not competent", "reassess", "re-evaluate"],
-        "instructor": ["instructor", "usage permit", "expire", "course"],
+        "instructor": ["instructor", "manual", "course", "permit", "certification", "usage permit", "instructor permit"],
         "remediation": ["remediation", "retest"],
         "rain": ["rain", "weather", "reschedule"],
-        "quiz": ["theory quiz", "quiz"]
+        "quiz": ["theory quiz", "quiz"],
+        "stages": ["stage", "stages", "criteria", "levels", "swimsafer stages", "stage info"],
     }
     for topic, keywords in topic_keywords.items():
         if any(k in query for k in keywords):
