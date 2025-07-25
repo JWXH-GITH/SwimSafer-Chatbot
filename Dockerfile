@@ -25,5 +25,8 @@ RUN pip install --upgrade pip
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Expose port 8000 for the app
+EXPOSE 8000
+
 # Run the FastAPI app using Uvicorn
 CMD ["sh", "-c", "uvicorn app.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
