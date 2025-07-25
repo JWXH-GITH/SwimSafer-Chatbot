@@ -9,4 +9,4 @@ python-dotenv
 httpx
 loguru
 sentence-transformers
-groq-client
+groq
