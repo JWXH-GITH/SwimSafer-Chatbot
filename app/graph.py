@@ -1,16 +1,24 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph
 from app.handlers.query_handler import handle_query
-from app.handlers.retrieval_handler import retrieve_context
+from app.handlers.retrieval_handler import retrieve_similar
 from app.handlers.response_handler import generate_response
 
-# Define the state using TypedDict
+# Define the state
 class ChatState(TypedDict):
     query: str
     context: str
     response: str
 
-# Build the LangGraph
+# Wrap retrieval into a node that accepts/returns ChatState
+def retrieve_context(state: ChatState) -> ChatState:
+    query = state["query"]
+    results = retrieve_similar(query, top_k=5)
+    context = "\n\n".join([hit.payload.get("text", "") for hit in results])
+    state["context"] = context
+    return state
+
+# Build LangGraph
 def build_graph():
     graph = StateGraph(ChatState)
 
