@@ -30,7 +30,7 @@ def generate_response(state):
         max_tokens=300,
     )
 
-    answer = response.choices[0].message.content.strip()
+    answer = response["choices"][0]["message"]["content"].strip()
 
     print(f"\n📝 Query: {query}\n💬 Answer: {answer}\n")
 
