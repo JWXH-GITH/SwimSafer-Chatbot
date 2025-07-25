@@ -25,7 +25,7 @@ VECTOR_DIM = 768  # Updated for e5-base-v2
 qdrant_url = os.getenv("QDRANT_URL")
 if not qdrant_url or "qdrant" in qdrant_url or qdrant_url.strip() == "":
     print("Using fallback Qdrant URL")
-    qdrant_url = "https://f1220f8d-947b-45d6-8b14-9ce454415ca3.eu-west-1-0.aws.cloud.qdrant.io"
+    qdrant_url = "https://d2161df3-ff04-4a1e-badf-55a3878d037e.europe-west3-0.gcp.cloud.qdrant.io"
 
 # Initialize Qdrant client
 qdrant = QdrantClient(
