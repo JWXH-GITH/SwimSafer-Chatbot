@@ -1,18 +1,27 @@
 import os
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import PointStruct
+
+from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 load_dotenv()
 
-from openai import OpenAI
+# --- Config ---
+COLLECTION_NAME = "swimsafer-faq"
+VECTOR_DIM = 768  # e5-base-v2 output dimension
 
-# Initialize the OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Qdrant setup
+client = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY"),
+    prefer_grpc=False,
+    timeout=30,
+)
 
-def get_query_embedding(text: str) -> list:
-    """
-    Generates an embedding vector for the given text using OpenAI SDK ≥ 1.0.0.
-    """
-    response = client.embeddings.create(
-        model="text-embedding-3-small",  # You can also use "text-embedding-3-large"
-        input=[text]  # Input must be a list of strings
-    )
-    return response.data[0].embedding
+# Load Sentence Transformer model
+model = SentenceTransformer("intfloat/e5-base-v2")
+
+# --- Embed Query ---
+def get_query_embedding(text: str):
+    embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
+    return embedding.tolist()
