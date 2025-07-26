@@ -18,3 +18,5 @@ Built with:
 - LlamaIndex
 - FastAPI
 - Docker
+- Groq AI
+- Render
