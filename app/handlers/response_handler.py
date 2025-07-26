@@ -21,7 +21,7 @@ def generate_response(state):
     user_prompt = f"Context:\n{raw_context}\n\nQuestion:\n{query}"
 
     response = client.chat_complete(
-        model="llama-3.3-70b-versatile",  # your Groq chat model name here
+        model="llama3-8b-8192",  # your Groq chat model name here
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
