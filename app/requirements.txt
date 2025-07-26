@@ -1,7 +1,6 @@
 langgraph
 openai
 qdrant-client
-tavily-python
 llama-index
 fastapi
 uvicorn
