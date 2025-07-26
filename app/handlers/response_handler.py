@@ -6,19 +6,20 @@ load_dotenv()
 
 client = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
 
+
 def generate_response(state):
     query = state["query"]
     raw_context = state.get("context", "")
 
     system_prompt = (
-        "You are a helpful assistant knowledgeable about the SwimSafer program in Singapore. "
-        "Use *only* the provided context to answer the question. "
-        "Do not fabricate or assume information beyond the context. "
-        "If the context does not contain the answer, politely inform the user you don't have enough information. "
-        "Keep the answer concise and relevant."
+        "You are a friendly and helpful assistant knowledgeable about the SwimSafer program in Singapore. "
+        "Answer questions based only on the information provided. "
+        "If you don't have enough information, politely say so. "
+        "Do not mention or refer to any 'context' or 'documents'. "
+        "Keep answers concise, natural, and user-friendly."
     )
 
-    user_prompt = f"Context:\n{raw_context}\n\nQuestion:\n{query}"
+    user_prompt = f"{raw_context}\n\nQuestion:\n{query}"
 
     response = client.chat_complete(
         model="llama3-8b-8192",  # your Groq chat model name here
@@ -31,6 +32,17 @@ def generate_response(state):
     )
 
     answer = response["choices"][0]["message"]["content"].strip()
+
+    # Optional: clean robotic lead-ins (if any slip through)
+    unwanted_phrases = [
+        "According to the provided context, ",
+        "Based on the context, ",
+        "From the context, ",
+        "As per the context, "
+    ]
+    for phrase in unwanted_phrases:
+        if answer.startswith(phrase):
+            answer = answer[len(phrase):].lstrip().capitalize()
 
     print(f"\n📝 Query: {query}\n💬 Answer: {answer}\n")
 
