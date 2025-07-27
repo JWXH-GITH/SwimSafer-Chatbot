@@ -3,13 +3,22 @@ from dotenv import load_dotenv
 from app.services.groq_client import GroqClient
 
 load_dotenv()
-
 client = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
 
+# 👇 Add this greeting detector function
+def is_greeting_or_smalltalk(text):
+    greetings = [
+        "hi", "hello", "hey", "good morning", "good afternoon", "good evening",
+        "how are you", "what's up", "yo", "sup", "howdy"
+    ]
+    text_lower = text.strip().lower()
+    return any(text_lower.startswith(greet) for greet in greetings)
 
+# 👇 Your main response generator
 def generate_response(state):
     query = state["query"]
     
+    # ✅ Early return for smalltalk/greetings
     if is_greeting_or_smalltalk(query):
         return {
             **state,
@@ -40,6 +49,7 @@ def generate_response(state):
 
     answer = response["choices"][0]["message"]["content"].strip()
 
+    # ✅ Optional: Clean robotic phrasing if any slip through
     unwanted_phrases = [
         "According to the provided context, ",
         "Based on the context, ",
