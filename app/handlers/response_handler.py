@@ -2,6 +2,9 @@ import os
 from dotenv import load_dotenv
 from app.services.groq_client import GroqClient
 
+# Import retrieve_similar from your retrieval handler
+from retrieval_handler import retrieve_similar
+
 load_dotenv()
 client = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
 
@@ -25,7 +28,10 @@ def generate_response(state):
             "response": "Hello! 👋 How can I assist you with the SwimSafer program today?"
         }
 
-    raw_context = state.get("context", "")
+    # Retrieve relevant context chunks from vector DB
+    results = retrieve_similar(query, top_k=5)
+    retrieved_chunks = [hit.payload.get("text", "") for hit in results if "text" in hit.payload]
+    raw_context = "\n\n".join(retrieved_chunks)
 
     system_prompt = (
         "You are a friendly and helpful assistant knowledgeable about the SwimSafer program in Singapore. "
