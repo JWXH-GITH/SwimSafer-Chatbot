@@ -19,7 +19,7 @@ client = QdrantClient(
 )
 
 # Load Sentence Transformer model
-model = SentenceTransformer("intfloat/e5-base-v2")
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # --- Embed Query ---
 def get_query_embedding(text: str):
