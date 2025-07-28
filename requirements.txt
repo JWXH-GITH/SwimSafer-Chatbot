@@ -10,3 +10,4 @@ httpx
 loguru
 sentence-transformers
 groq
+psutil
