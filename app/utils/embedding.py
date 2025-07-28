@@ -1,23 +1,29 @@
+embedding.py:
+
 import os
-import psutil
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import PointStruct
+
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
-
 load_dotenv()
 
-def print_memory_usage(stage=""):
-    process = psutil.Process(os.getpid())
-    mem_mb = process.memory_info().rss / (1024 * 1024)
-    print(f"[Memory] {stage}: {mem_mb:.2f} MB used")
+# --- Config ---
+COLLECTION_NAME = "swimsafer-faq"
+VECTOR_DIM = 768  # e5-base-v2 output dimension
 
-print_memory_usage("Before loading embedding model")
+# Qdrant setup
+client = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY"),
+    prefer_grpc=False,
+    timeout=30,
+)
 
-# Eagerly load the embedding model at startup
-model = SentenceTransformer("all-MiniLM-L6-v2")  # lightweight & 768-dim
+# Load Sentence Transformer model
+model = SentenceTransformer("intfloat/e5-base-v2")
 
-print_memory_usage("After loading embedding model")
-
+# --- Embed Query ---
 def get_query_embedding(text: str):
     embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
-    print_memory_usage("After embedding a query")
     return embedding.tolist()
