@@ -1,28 +1,23 @@
-import os
+\import os
 import psutil
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
 load_dotenv()
 
-_model = None
-
-def print_memory_usage():
+def print_memory_usage(stage=""):
     process = psutil.Process(os.getpid())
     mem_mb = process.memory_info().rss / (1024 * 1024)
-    print(f"[Memory] {mem_mb:.2f} MB used")
+    print(f"[Memory] {stage}: {mem_mb:.2f} MB used")
 
-def get_embedding_model():
-    global _model
-    if _model is None:
-        print("Loading embedding model...")
-        _model = SentenceTransformer("all-MiniLM-L6-v2")  # lightweight & 768-dim
-        print("Model loaded.")
-        print_memory_usage()
-    return _model
+print_memory_usage("Before loading embedding model")
+
+# Eagerly load the embedding model at startup
+model = SentenceTransformer("all-MiniLM-L6-v2")  # lightweight & 768-dim
+
+print_memory_usage("After loading embedding model")
 
 def get_query_embedding(text: str):
-    model = get_embedding_model()
     embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
-    print_memory_usage()
+    print_memory_usage("After embedding a query")
     return embedding.tolist()
