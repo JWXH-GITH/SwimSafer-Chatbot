@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from app.services.groq_client import GroqClient
 
 # Import retrieve_similar from your retrieval handler
-from retrieval_handler import retrieve_similar
+from app.handlers.retrieval_handler import retrieve_similar
 
 load_dotenv()
 client = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
