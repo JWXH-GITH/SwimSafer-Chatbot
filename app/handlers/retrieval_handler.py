@@ -31,7 +31,6 @@ qdrant = QdrantClient(
 )
 
 def retrieve_similar(query_text, top_k=5, min_score=0.75):
-    """Retrieve top-k relevant chunks for a given query based on vector similarity."""
     embedding = get_query_embedding(query_text)
 
     results = qdrant.search(
@@ -39,7 +38,8 @@ def retrieve_similar(query_text, top_k=5, min_score=0.75):
         query_vector=embedding,
         limit=top_k,
         with_payload=True,
-        with_vectors=False,
+        with_vectors=False
     )
 
-    return [res for res in results if res.score >= min_score]
+    filtered = [res for res in results if res.score >= min_score]
+    return filtered
