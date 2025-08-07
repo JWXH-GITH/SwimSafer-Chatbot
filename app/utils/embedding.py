@@ -1,11 +1,9 @@
-# embedding.py
-
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct
+
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
-
 load_dotenv()
 
 # --- Config ---
@@ -20,17 +18,10 @@ client = QdrantClient(
     timeout=30,
 )
 
-# --- Model Loading ---
-_model = None  # Internal singleton
-
-def get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("intfloat/e5-base-v2")
-    return _model
+# Load Sentence Transformer model
+model = SentenceTransformer("intfloat/e5-base-v2")
 
 # --- Embed Query ---
 def get_query_embedding(text: str):
-    model = get_model()
     embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
     return embedding.tolist()
