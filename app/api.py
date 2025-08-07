@@ -2,16 +2,17 @@ from typing import List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.graph import build_graph
-from tiktoken import encoding_for_model
+import tiktoken
 
-# Helper functions (paste these here or import from utils)
+# Constants
 MAX_TOKENS = 16385
 MODEL_NAME = "gpt-4o"
 
+# -- Helper Functions --
+
 def num_tokens_from_messages(messages, model=MODEL_NAME):
-    enc = encoding_for_model(model)
-    tokens_per_message = 4
+    enc = tiktoken.encoding_for_model(model)
+    tokens_per_message = 4  # OpenAI chat format overhead
     tokens_per_name = -1
     num_tokens = 0
     for message in messages:
@@ -20,50 +21,48 @@ def num_tokens_from_messages(messages, model=MODEL_NAME):
             num_tokens += len(enc.encode(value))
             if key == "name":
                 num_tokens += tokens_per_name
-    num_tokens += 2
-    return num_tokens
+    return num_tokens + 2  # bias for reply structure
 
 def trim_messages_to_fit_token_limit(messages, max_tokens=MAX_TOKENS):
+    if not messages:
+        return []
     system_message = messages[0]
     rest = messages[1:]
 
-    trimmed = []
     for i in range(len(rest)):
-        candidate = rest[-(i+1):]
+        candidate = rest[-(i + 1):]
         test_messages = [system_message] + candidate
         if num_tokens_from_messages(test_messages) <= max_tokens:
-            trimmed = test_messages
-            break
-    return trimmed if trimmed else [system_message]
+            return test_messages
+    return [system_message]
 
-# Request schema
+# -- Request Schema --
+
 class ChatRequest(BaseModel):
-    messages: List[Dict]  # Expect list of messages like OpenAI chat format
+    messages: List[Dict[str, str]]
 
-# Initialize FastAPI app
+# -- FastAPI App --
+
 app = FastAPI()
 
-# Enable CORS for frontend integration
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Build LangGraph once
+# -- Import LangGraph builder only when used --
+# To avoid memory usage at boot time
+from app.graph import build_graph
 graph = build_graph()
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
-    messages = request.messages  # list of dicts like {"role": "...", "content": "..."}
+    messages = trim_messages_to_fit_token_limit(request.messages)
+    user_query = messages[-1]["content"] if messages else ""
 
-    # trim if needed
-    messages = trim_messages_to_fit_token_limit(messages)
-
-    # pass last user message content as query string to your graph
-    input_data = {"query": messages[-1]["content"]}
-
-    result = graph.invoke(input_data)
+    result = graph.invoke({"query": user_query})
     return {"response": result["response"]}
