@@ -1,13 +1,9 @@
-langgraph
-openai
-qdrant-client
-tavily-python
-llama-index
 fastapi
 uvicorn
 python-dotenv
-httpx
-loguru
+qdrant-client
 sentence-transformers
 groq
 psutil
+httpx
+loguru
