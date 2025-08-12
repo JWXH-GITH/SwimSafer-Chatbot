@@ -6,29 +6,36 @@ from dotenv import load_dotenv
 app_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app"))
 sys.path.insert(0, app_path)
 
-from app.utils.embedding import get_query_embedding
 from qdrant_client import QdrantClient
+from sentence_transformers import SentenceTransformer
 
-# Load environment variables
+# --- Load env variables ---
 load_dotenv()
 
-# Constants
+# --- Config ---
 COLLECTION_NAME = "chatbot_docs"
 VECTOR_DIM = 768  # For e5-base-v2
 
-# Set Qdrant URL with fallback
+# --- Initialize Qdrant ---
 qdrant_url = os.getenv("QDRANT_URL")
 if not qdrant_url or "qdrant" not in qdrant_url:
     print("Using fallback Qdrant URL")
     qdrant_url = "https://d2161df3-ff04-4a1e-badf-55a3878d037e.europe-west3-0.gcp.cloud.qdrant.io"
 
-# Initialize Qdrant client
 qdrant = QdrantClient(
     url=qdrant_url,
     api_key=os.getenv("QDRANT_API_KEY")
 )
 
-# Retrieve with relevance filter
+# --- Load embedding model once ---
+print("Loading embedding model into memory...")
+embedding_model = SentenceTransformer("intfloat/e5-base-v2")
+
+# --- Embedding function ---
+def get_query_embedding(text: str):
+    return embedding_model.encode(text, normalize_embeddings=True).tolist()
+
+# --- Retrieval function ---
 def retrieve_similar(query_text, top_k=5, min_score=0.75):
     embedding = get_query_embedding(query_text)
 
@@ -40,5 +47,5 @@ def retrieve_similar(query_text, top_k=5, min_score=0.75):
         with_vectors=False
     )
 
-    filtered = [res for res in results if res.score >= min_score]
-    return filtered
+    # Only return results above threshold
+    return [res for res in results if res.score >= min_score]
