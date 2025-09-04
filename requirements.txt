@@ -1,8 +1,7 @@
 fastapi
-uvicorn [standard]
+uvicorn[standard]
 python-dotenv
 qdrant-client
-sentence-transformers
 groq
 psutil
 httpx
@@ -10,3 +9,4 @@ loguru
 langgraph
 tiktoken
 torch --index-url https://download.pytorch.org/whl/cpu
+sentence-transformers
