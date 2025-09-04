@@ -10,8 +10,16 @@ class ChatState(TypedDict):
     context: str
     response: str
 
-# Wrap retrieval into a node that accepts/returns ChatState
+# Lazy model cache
+_model_loaded = False
+
 def retrieve_context(state: ChatState) -> ChatState:
+    global _model_loaded
+    if not _model_loaded:
+        # Import heavy models here instead of at startup
+        import sentence_transformers  # only when needed
+        _model_loaded = True
+
     query = state["query"]
     results = retrieve_similar(query, top_k=5)
     context = "\n\n".join([hit.payload.get("text", "") for hit in results])
