@@ -1,3 +1,4 @@
+# everything else from PyPI
 fastapi
 uvicorn[standard]
 python-dotenv
@@ -8,5 +9,8 @@ httpx
 loguru
 langgraph
 tiktoken
-torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 sentence-transformers
+
+# torch ONLY from PyTorch CPU index
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.8.0+cpu
