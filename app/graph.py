@@ -43,7 +43,7 @@ def generate_response_node(state: ChatState) -> ChatState:
 # ----------------------------
 def handle_query_node(state: ChatState) -> ChatState:
     from app.handlers.query_handler import handle_query
-    state["query"] = handle_query()
+    state = handle_query(state)  # ✅ Pass state to handle_query
     return state
 
 # ----------------------------
