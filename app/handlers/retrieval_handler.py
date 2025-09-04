@@ -1,41 +1,44 @@
+# app/handlers/retrieval_handler.py
 import os
-import sys
 from dotenv import load_dotenv
+from app.services.groq_client import GroqClient
 
-# Add the absolute path to the `app` directory
-app_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app"))
-sys.path.insert(0, app_path)
-
-from app.utils.embedding import get_query_embedding
-from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams
-
-# Load environment variables
 load_dotenv()
 
-# Constants
-COLLECTION_NAME = "chatbot_docs"
-VECTOR_DIM = 768  # Updated for e5-base-v2
+_client = None
 
-# Set Qdrant URL with fallback
-qdrant_url = os.getenv("QDRANT_URL")
-if not qdrant_url or "qdrant" in qdrant_url or qdrant_url.strip() == "":
-    print("Using fallback Qdrant URL")
-    qdrant_url = "https://d2161df3-ff04-4a1e-badf-55a3878d037e.europe-west3-0.gcp.cloud.qdrant.io"
+def get_client():
+    """Lazy-load GroqClient to save memory."""
+    global _client
+    if _client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY not set in environment variables")
+        _client = GroqClient(api_key=api_key)
+    return _client
 
-# Initialize Qdrant client
-qdrant = QdrantClient(
-    url=qdrant_url,
-    api_key=os.getenv("QDRANT_API_KEY")
-)
 
-# Simple retrieval function
-def retrieve_similar(query_text, top_k=5):
-    embedding = get_query_embedding(query_text)
-    results = qdrant.search(
-        collection_name=COLLECTION_NAME,
-        query_vector=embedding,
-        limit=top_k,
-        with_payload=True
+def retrieve_similar(query: str, top_k: int = 5):
+    """
+    Retrieves the top_k most similar chunks for a given query
+    using Groq vector embeddings.
+    """
+    client = get_client()
+
+    # Generate query embedding
+    embedding_response = client.embed(
+        model="llama3-8b-8192",  # or any Groq embedding model
+        input=query
     )
-    return results
+    query_embedding = embedding_response["embedding"]
+
+    # Perform similarity search in your Groq index
+    search_results = client.similarity_search(
+        index_name="swimsafer_chunks",  # your pre-built index
+        query_embedding=query_embedding,
+        top_k=top_k
+    )
+
+    # Each result contains a payload with your stored text
+    # Example: {"payload": {"text": "Some SwimSafer info"}, "score": 0.87}
+    return search_results
