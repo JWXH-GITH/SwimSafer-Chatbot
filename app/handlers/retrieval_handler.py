@@ -1,44 +1,32 @@
-# app/handlers/retrieval_handler.py
 import os
-from dotenv import load_dotenv
-from app.services.groq_client import GroqClient
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Filter, FieldCondition, MatchValue
+from app.handlers.embedding_service import get_query_embedding  # <-- your function above
 
-load_dotenv()
+# Qdrant setup (reuse same as above)
+client = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY"),
+    prefer_grpc=False,
+    timeout=30,
+)
 
-_client = None
-
-def get_client():
-    """Lazy-load GroqClient to save memory."""
-    global _client
-    if _client is None:
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise RuntimeError("GROQ_API_KEY not set in environment variables")
-        _client = GroqClient(api_key=api_key)
-    return _client
-
+COLLECTION_NAME = "swimsafer-faq"
 
 def retrieve_similar(query: str, top_k: int = 5):
-    """
-    Retrieves the top_k most similar chunks for a given query
-    using Groq vector embeddings.
-    """
-    client = get_client()
+    # 1️⃣ Embed the query
+    query_vector = get_query_embedding(query)
 
-    # Generate query embedding
-    embedding_response = client.embed(
-        model="llama3-8b-8192",  # or any Groq embedding model
-        input=query
-    )
-    query_embedding = embedding_response["embedding"]
-
-    # Perform similarity search in your Groq index
-    search_results = client.similarity_search(
-        index_name="swimsafer_chunks",  # your pre-built index
-        query_embedding=query_embedding,
-        top_k=top_k
+    # 2️⃣ Search in Qdrant
+    search_result = client.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=query_vector,
+        limit=top_k
     )
 
-    # Each result contains a payload with your stored text
-    # Example: {"payload": {"text": "Some SwimSafer info"}, "score": 0.87}
-    return search_results
+    # 3️⃣ Return results (mimic old API structure)
+    results = []
+    for point in search_result:
+        # point.payload is a dict containing stored fields (like 'text')
+        results.append(point)
+    return results
