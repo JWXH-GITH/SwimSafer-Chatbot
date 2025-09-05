@@ -1,24 +1,20 @@
 # app/handlers/embedding_service.py
 
-import os
+import torch
 from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# Load model once
-_model = None
-
-def get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("intfloat/e5-base-v2")
-    return _model
+# Load model once globally
+_embedding_model = SentenceTransformer("sentence-transformers/paraphrase-MiniLM-L12-v2")
 
 def get_query_embedding(text: str):
     """
     Returns a normalized embedding vector for a given text.
+    Optimized for minimal memory usage on Render Free.
     """
-    model = get_model()
-    embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
+    with torch.no_grad():  # prevents building computation graph
+        embedding = _embedding_model.encode(
+            text,
+            convert_to_numpy=True,
+            normalize_embeddings=True
+        ).astype("float32")  # reduce memory per embedding
     return embedding.tolist()
