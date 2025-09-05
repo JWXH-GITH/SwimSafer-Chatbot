@@ -4,14 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Lazy-load the model to save memory
+# Lazy-load model to save memory
 _model = None
 
 def get_model():
     global _model
     if _model is None:
-        # Use a lighter 768-dim model
-        _model = SentenceTransformer("sentence-transformers/paraphrase-mpnet-base-v2")
+        # Lightweight 768-dim model under 300MB
+        _model = SentenceTransformer("sentence-transformers/paraphrase-MiniLM-L12-v2")
     return _model
 
 def get_query_embedding(text: str):
