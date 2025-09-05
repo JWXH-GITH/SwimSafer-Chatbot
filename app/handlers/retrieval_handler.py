@@ -9,7 +9,7 @@ client = QdrantClient(
     timeout=30,
 )
 
-COLLECTION_NAME = "swimsafer-faq"
+COLLECTION_NAME = "chatbot_docs"
 
 def retrieve_similar(query, top_k=5):
     embedding = get_query_embedding(query)
