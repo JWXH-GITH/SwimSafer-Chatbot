@@ -8,9 +8,9 @@ load_dotenv()
 
 # --- Config ---
 COLLECTION_NAME = "swimsafer-faq"
-VECTOR_DIM = 768  # e5-base-v2 output dimension
+VECTOR_DIM = 768  # paraphrase-MiniLM-L12-v2 output dimension
 
-# Qdrant setup
+# Qdrant setup (remote, not embedded)
 client = QdrantClient(
     url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_KEY"),
@@ -18,10 +18,15 @@ client = QdrantClient(
     timeout=30,
 )
 
-# Load Sentence Transformer model
-model = SentenceTransformer("intfloat/e5-base-v2")
+# Load a lighter Sentence Transformer model
+# (fits inside 512MiB Render Free, unlike e5-base-v2)
+model = SentenceTransformer("sentence-transformers/paraphrase-MiniLM-L12-v2")
 
 # --- Embed Query ---
 def get_query_embedding(text: str):
-    embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
+    embedding = model.encode(
+        text,
+        convert_to_numpy=True,
+        normalize_embeddings=True
+    )
     return embedding.tolist()
