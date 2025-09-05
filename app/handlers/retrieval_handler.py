@@ -2,6 +2,7 @@ from app.handlers.embedding_service import get_query_embedding
 from qdrant_client import QdrantClient
 import os
 
+# Qdrant client setup
 client = QdrantClient(
     url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_KEY"),
@@ -9,9 +10,13 @@ client = QdrantClient(
     timeout=30,
 )
 
+# Use your existing collection
 COLLECTION_NAME = "chatbot_docs"
 
-def retrieve_similar(query, top_k=5):
+def retrieve_similar(query: str, top_k: int = 5):
+    """
+    Retrieve the top_k most similar documents from Qdrant.
+    """
     embedding = get_query_embedding(query)
     results = client.search(
         collection_name=COLLECTION_NAME,
