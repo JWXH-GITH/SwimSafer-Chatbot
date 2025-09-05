@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Config ---
-COLLECTION_NAME = "swimsafer-faq"
+COLLECTION_NAME = "chatbot_docs"
 VECTOR_DIM = 768  # paraphrase-MiniLM-L12-v2 output dimension
 
 # Qdrant setup (remote, not embedded)
