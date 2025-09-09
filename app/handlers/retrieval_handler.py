@@ -1,26 +1,20 @@
-from app.handlers.embedding_service import get_query_embedding
-from qdrant_client import QdrantClient
 import os
+from qdrant_client import QdrantClient
+from app.utils.embedding_service import get_query_embedding
 
-# Qdrant client setup
-client = QdrantClient(
-    url=os.getenv("QDRANT_URL"),
-    api_key=os.getenv("QDRANT_API_KEY"),
-    prefer_grpc=False,
-    timeout=30,
-)
-
-# Use your existing collection
+# Connect to Qdrant
+client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
 COLLECTION_NAME = "chatbot_docs"
 
 def retrieve_similar(query: str, top_k: int = 5):
     """
-    Retrieve the top_k most similar documents from Qdrant.
+    Retrieves the top_k most similar chunks from Qdrant for a given query.
     """
-    embedding = get_query_embedding(query)
+    query_vector = get_query_embedding(query)
+
     results = client.search(
         collection_name=COLLECTION_NAME,
-        query_vector=embedding,
+        query_vector=query_vector,
         limit=top_k
     )
     return results
