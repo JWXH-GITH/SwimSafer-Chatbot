@@ -48,7 +48,7 @@ def generate_response(state):
     ]
 
     try:
-        response = groq.chat_complete(model="llama3-8b-8192", messages=messages)
+        response = groq.chat_complete(model="llama-3.1-8b-instant", messages=messages)
         answer = response["choices"][0]["message"]["content"]
     except Exception as e:
         print("❌ LLM error:", e)
