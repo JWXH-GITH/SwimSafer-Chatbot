@@ -48,12 +48,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-graph = build_graph()
+graph = build_graph()  # this returns our pipeline function
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     messages = request.messages
     messages = trim_messages_to_fit_token_limit(messages)
     input_data = {"query": messages[-1]["content"]}
-    result = graph.invoke(input_data)
+    
+    # ✅ call pipeline function directly
+    result = graph(input_data)
+
     return {"response": result["response"]}
