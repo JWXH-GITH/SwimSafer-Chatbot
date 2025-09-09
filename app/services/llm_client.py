@@ -8,7 +8,7 @@ from app.services.groq_client import GroqClient
 groq = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
 
 # Pick a valid Groq-hosted model
-MODEL_NAME = "llama3-8b-8192"  # adjust if needed
+MODEL_NAME = "llama-3.1-8b-instant"  # adjust if needed
 
 def llm_complete(system_prompt: str, user_prompt: str, max_tokens: int = 300, temperature: float = 0.7) -> str:
     """
