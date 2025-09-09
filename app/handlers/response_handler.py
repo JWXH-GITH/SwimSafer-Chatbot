@@ -1,5 +1,10 @@
+import os
 from app.handlers.retrieval_handler import retrieve_similar
-from app.services.llm_client import llm_complete
+from app.services.groq_client import GroqClient
+
+groq = GroqClient(api_key=os.getenv("GROQ_API_KEY"))
+
+MAX_CONTEXT_CHARS = 3000  # adjust depending on your model's limits
 
 def is_greeting_or_smalltalk(text: str) -> bool:
     greetings = [
@@ -12,20 +17,21 @@ def is_greeting_or_smalltalk(text: str) -> bool:
 def generate_response(state):
     query = state["query"]
 
-    # Early return for greetings
+    # Early return for greetings / smalltalk
     if is_greeting_or_smalltalk(query):
         return {
             **state,
             "response": "Hello! 👋 How can I assist you with the SwimSafer program today?"
         }
 
-    # Retrieve top 5 relevant docs
+    # Retrieve top 5 relevant documents
     results = retrieve_similar(query, top_k=5)
     retrieved_chunks = [hit.payload.get("text", "") for hit in results if "text" in hit.payload]
     raw_context = "\n\n".join(retrieved_chunks)
 
-    if not raw_context.strip():
-        return {**state, "response": "Sorry, I cannot answer that right now."}
+    # Truncate context to avoid exceeding model limits
+    if len(raw_context) > MAX_CONTEXT_CHARS:
+        raw_context = raw_context[-MAX_CONTEXT_CHARS:]  # keep last N chars
 
     system_prompt = (
         "You are a friendly and helpful assistant knowledgeable about the SwimSafer program in Singapore. "
@@ -36,13 +42,19 @@ def generate_response(state):
 
     user_prompt = f"{raw_context}\n\nQuestion:\n{query}"
 
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
     try:
-        answer = llm_complete(system_prompt=system_prompt, user_prompt=user_prompt)
+        response = groq.chat_complete(model="llama3-8b-8192", messages=messages)
+        answer = response["choices"][0]["message"]["content"]
     except Exception as e:
         print("❌ LLM error:", e)
         answer = "Sorry, I cannot answer that right now."
 
-    # Clean unwanted phrasing
+    # Clean up unwanted phrasing
     unwanted_phrases = [
         "According to the provided context, ",
         "Based on the context, ",
